@@ -14,7 +14,9 @@ def calcular():
         day=int(data.get("day")),
         hour=int(data.get("hour")),
         minute=int(data.get("minute")),
-        city=data.get("city")
+        lat=19.4326,
+        lng=-99.1332,
+        tz_str="America/Mexico_City"
     )
 
     resultado = {
