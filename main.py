@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
+# 🔹 Traducción de signos
 def traducir_signo(sign):
     signos = {
         "Ari": "Aries",
@@ -19,11 +20,42 @@ def traducir_signo(sign):
     }
     return signos.get(sign, sign)
 
-def limpiar(data):
-    sign = traducir_signo(data.sign)
-    house = data.house.replace("_House", "").replace("First", "1").replace("Second", "2").replace("Third", "3").replace("Fourth", "4").replace("Fifth", "5").replace("Sixth", "6").replace("Seventh", "7").replace("Eighth", "8").replace("Ninth", "9").replace("Tenth", "10").replace("Eleventh", "11").replace("Twelfth", "12")
-    return f"{data.name} en {sign} casa {house}"
+# 🔹 Traducción de casas
+def traducir_casa(casa):
+    casas = {
+        "First_House": "1",
+        "Second_House": "2",
+        "Third_House": "3",
+        "Fourth_House": "4",
+        "Fifth_House": "5",
+        "Sixth_House": "6",
+        "Seventh_House": "7",
+        "Eighth_House": "8",
+        "Ninth_House": "9",
+        "Tenth_House": "10",
+        "Eleventh_House": "11",
+        "Twelfth_House": "12"
+    }
+    return casas.get(casa, casa)
 
+# 🔹 Traducción de nombres planetarios
+def traducir_nombre(nombre):
+    nombres = {
+        "Sun": "Sol",
+        "Moon": "Luna",
+        "Ascendant": "Ascendente"
+    }
+    return nombres.get(nombre, nombre)
+
+# 🔹 Formato final UMBRAL
+def formatear(planeta):
+    nombre = traducir_nombre(planeta.name)
+    signo = traducir_signo(planeta.sign)
+    casa = traducir_casa(planeta.house)
+
+    return f"{nombre} en {signo} casa {casa}"
+
+# 🔹 Endpoint principal
 @app.route('/calcular', methods=['POST'])
 def calcular():
     try:
@@ -43,15 +75,19 @@ def calcular():
             tz_str="America/Mexico_City"
         )
 
-        return jsonify({
-            "sol": limpiar(subject.sun),
-            "luna": limpiar(subject.moon),
-            "ascendente": limpiar(subject.ascendant)
-        })
+        resultado = {
+            "sol": formatear(subject.sun),
+            "luna": formatear(subject.moon),
+            "ascendente": formatear(subject.ascendant)
+        }
+
+        return jsonify(resultado)
 
     except Exception as e:
         return jsonify({
-            "error": str(e)
-        })
+            "status": "error",
+            "detalle": str(e)
+        }), 500
 
+# 🔹 Run server
 app.run(host='0.0.0.0', port=10000)
