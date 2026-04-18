@@ -1,31 +1,23 @@
 from flask import Flask, request, jsonify
-from flatlib.chart import Chart
-from flatlib.datetime import Datetime
-from flatlib.geopos import GeoPos
+import requests
 
 app = Flask(__name__)
 
-@app.route('/calcular', methods=['POST'])
-def calcular():
+@app.route("/")
+def home():
+    return "API UMBRAL funcionando"
+
+@app.route("/carta", methods=["POST"])
+def carta():
     data = request.json
 
-    date = Datetime(
-        f"{data['year']}/{data['month']}/{data['day']}",
-        f"{data['hour']}:{data['minute']}",
-        str(data.get('timezone', -6))
-    )
+    url = "https://jsonplaceholder.typicode.com/posts"
 
-    pos = GeoPos(
-        str(data.get('lat', 19.4326)),
-        str(data.get('lon', -99.1332))
-    )
-
-    chart = Chart(date, pos)
+    response = requests.post(url, json=data)
 
     return jsonify({
-        "sol": str(chart.get('SUN')),
-        "luna": str(chart.get('MOON')),
-        "ascendente": str(chart.get('ASC'))
+        "status": "ok",
+        "data_recibida": data
     })
 
 if __name__ == "__main__":
