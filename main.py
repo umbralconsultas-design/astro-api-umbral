@@ -1,93 +1,32 @@
 from flask import Flask, request, jsonify
+from flatlib.chart import Chart
+from flatlib.datetime import Datetime
+from flatlib.geopos import GeoPos
 
 app = Flask(__name__)
 
-# 🔹 Traducción de signos
-def traducir_signo(sign):
-    signos = {
-        "Ari": "Aries",
-        "Tau": "Tauro",
-        "Gem": "Géminis",
-        "Can": "Cáncer",
-        "Leo": "Leo",
-        "Vir": "Virgo",
-        "Lib": "Libra",
-        "Sco": "Escorpio",
-        "Sag": "Sagitario",
-        "Cap": "Capricornio",
-        "Aqu": "Acuario",
-        "Pis": "Piscis"
-    }
-    return signos.get(sign, sign)
-
-# 🔹 Traducción de casas
-def traducir_casa(casa):
-    casas = {
-        "First_House": "1",
-        "Second_House": "2",
-        "Third_House": "3",
-        "Fourth_House": "4",
-        "Fifth_House": "5",
-        "Sixth_House": "6",
-        "Seventh_House": "7",
-        "Eighth_House": "8",
-        "Ninth_House": "9",
-        "Tenth_House": "10",
-        "Eleventh_House": "11",
-        "Twelfth_House": "12"
-    }
-    return casas.get(casa, casa)
-
-# 🔹 Traducción de nombres planetarios
-def traducir_nombre(nombre):
-    nombres = {
-        "Sun": "Sol",
-        "Moon": "Luna",
-        "Ascendant": "Ascendente"
-    }
-    return nombres.get(nombre, nombre)
-
-# 🔹 Formato final UMBRAL
-def formatear(planeta):
-    nombre = traducir_nombre(planeta.name)
-    signo = traducir_signo(planeta.sign)
-    casa = traducir_casa(planeta.house)
-
-    return f"{nombre} en {signo} casa {casa}"
-
-# 🔹 Endpoint principal
 @app.route('/calcular', methods=['POST'])
 def calcular():
-    try:
-        from kerykeion import AstrologicalSubject
+    data = request.json
 
-        data = request.json
+    date = Datetime(
+        f"{data['year']}/{data['month']}/{data['day']}",
+        f"{data['hour']}:{data['minute']}",
+        str(data.get('timezone', -6))
+    )
 
-        subject = AstrologicalSubject(
-            name=data.get("name"),
-            year=int(data.get("year")),
-            month=int(data.get("month")),
-            day=int(data.get("day")),
-            hour=int(data.get("hour")),
-            minute=int(data.get("minute")),
-            lat=19.4326,
-            lng=-99.1332,
-            tz_str="America/Mexico_City"
-        )
+    pos = GeoPos(
+        str(data.get('lat', 19.4326)),
+        str(data.get('lon', -99.1332))
+    )
 
-        resultado = {
-            "sol": formatear(subject.sun),
-            "luna": formatear(subject.moon),
-            "ascendente": formatear(subject.ascendant)
-        }
+    chart = Chart(date, pos)
 
-        return jsonify(resultado)
+    return jsonify({
+        "sol": str(chart.get('SUN')),
+        "luna": str(chart.get('MOON')),
+        "ascendente": str(chart.get('ASC'))
+    })
 
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "detalle": str(e)
-        }), 500
-
-# 🔹 Run server
-app.run(host='0.0.0.0', port=10000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
