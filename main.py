@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-# 🔥 EPHE PATH
+# 🔥 EPHE PATH (para Render)
 swe.set_ephe_path(os.getcwd())
 
 
@@ -21,13 +21,14 @@ def obtener_signo(grados):
 
 
 # ===============================
-# 🔮 CARTA PROFESIONAL
+# 🔮 CÁLCULO CARTA (PROFESIONAL)
 # ===============================
 def calcular_carta(data):
 
     year = int(data.get("year"))
     month = int(data.get("month"))
     day = int(data.get("day"))
+
     hour = int(data.get("hour"))
     minute = int(data.get("minute"))
 
@@ -40,9 +41,10 @@ def calcular_carta(data):
     hora_local = hour + (minute / 60.0)
     hora_utc = hora_local - timezone
 
+    # 🔥 JULIAN DAY
     jd = swe.julday(year, month, day, hora_utc)
 
-    # 🔥 PLANETAS
+    # 🔥 PLANETAS PRINCIPALES
     planetas = {
         "sol": swe.SUN,
         "luna": swe.MOON,
@@ -62,7 +64,7 @@ def calcular_carta(data):
             "signo": obtener_signo(pos)
         }
 
-    # 🔥 CASAS PLACIDUS (PROFESIONAL)
+    # 🔥 CASAS PLACIDUS (ASCENDENTE REAL)
     casas, ascmc = swe.houses_ex(jd, lat, lon, b'P')
 
     asc = ascmc[0]
@@ -84,7 +86,7 @@ def home():
 
 
 # ===============================
-# 🔥 ENDPOINT REAL
+# 🔥 ENDPOINT CARTA
 # ===============================
 @app.route("/carta", methods=["POST"])
 def carta():
