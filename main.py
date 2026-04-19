@@ -1,70 +1,104 @@
-/*************************************
- ASTRO.gs (FINAL FUNCIONAL CON /carta)
-*************************************/
-function obtenerContextoAstrologico(email) {
-  try {
+from flask import Flask, request, jsonify
+import swisseph as swe
+import math
 
-    const datos = obtenerDatosCliente(email);
+app = Flask(__name__)
 
-    if (!datos || !datos.year) {
-      return "No disponible";
+# 🔥 CONFIG EPHEMERIS (IMPORTANTE)
+swe.set_ephe_path('/usr/share/ephe')  # en Render puede variar, pero funciona así normalmente
+
+
+# ===============================
+# 🌍 CALCULAR SIGNO
+# ===============================
+def obtener_signo(grados):
+    signos = [
+        "Aries", "Tauro", "Géminis", "Cáncer",
+        "Leo", "Virgo", "Libra", "Escorpio",
+        "Sagitario", "Capricornio", "Acuario", "Piscis"
+    ]
+    return signos[int(grados / 30)]
+
+
+# ===============================
+# 🔮 CALCULAR CARTA BÁSICA
+# ===============================
+def calcular_carta(data):
+    year = int(data.get("year"))
+    month = int(data.get("month"))
+    day = int(data.get("day"))
+    hour = int(data.get("hour"))
+    minute = int(data.get("minute"))
+    lat = float(data.get("lat"))
+    lon = float(data.get("lon"))
+
+    # 🔥 convertir hora decimal
+    hora_decimal = hour + (minute / 60.0)
+
+    # 🔥 fecha juliana
+    jd = swe.julday(year, month, day, hora_decimal)
+
+    # 🔥 planetas principales
+    planetas = {
+        "sol": swe.SUN,
+        "luna": swe.MOON,
+        "mercurio": swe.MERCURY,
+        "venus": swe.VENUS,
+        "marte": swe.MARS
     }
 
-    // 🔥 ENDPOINT REAL DE TU BACKEND
-    const url = "https://astro-api-umbral.onrender.com/carta";
+    resultado = {}
 
-    const payload = {
-      name: datos.nombre || "Usuario",
-      year: parseInt(datos.year),
-      month: parseInt(datos.month),
-      day: parseInt(datos.day),
-      hour: parseInt(datos.hour),
-      minute: parseInt(datos.minute),
-      lat: 19.4326,
-      lon: -99.1332,
-      timezone: -6
-    };
+    for nombre, planeta in planetas.items():
+        pos = swe.calc_ut(jd, planeta)[0][0]
+        resultado[nombre] = {
+            "grado": round(pos, 2),
+            "signo": obtener_signo(pos)
+        }
 
-    Logger.log("PAYLOAD ASTRO:");
-    Logger.log(JSON.stringify(payload));
+    # 🔥 ASCENDENTE
+    casas = swe.houses(jd, lat, lon)
+    asc = casas[0][0]
 
-    const response = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-
-    const status = response.getResponseCode();
-    const text = response.getContentText();
-
-    Logger.log("STATUS ASTRO: " + status);
-    Logger.log("RESPUESTA CRUDA:");
-    Logger.log(text);
-
-    if (status !== 200) {
-      Logger.log("⚠️ ERROR BACKEND ASTRO");
-      return "No disponible";
+    resultado["ascendente"] = {
+        "grado": round(asc, 2),
+        "signo": obtener_signo(asc)
     }
 
-    let result;
+    return resultado
 
-    try {
-      result = JSON.parse(text);
-    } catch (e) {
-      Logger.log("⚠️ RESPUESTA NO ES JSON");
-      return "No disponible";
-    }
 
-    Logger.log("RESPUESTA ASTRO PARSEADA:");
-    Logger.log(JSON.stringify(result));
+# ===============================
+# 🟢 HOME
+# ===============================
+@app.route("/")
+def home():
+    return "UMBRAL OK"
 
-    return JSON.stringify(result);
 
-  } catch (error) {
+# ===============================
+# 🔥 ENDPOINT REAL
+# ===============================
+@app.route("/carta", methods=["POST"])
+def carta():
+    try:
+        data = request.json
 
-    Logger.log("ERROR ASTRO: " + error.message);
+        carta = calcular_carta(data)
 
-    return "No disponible";
-  }
-}
+        return jsonify({
+            "mensaje": "Carta calculada",
+            "carta": carta
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# ===============================
+# 🚀 RUN
+# ===============================
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
