@@ -1,16 +1,13 @@
 from flask import Flask, request, jsonify
 import swisseph as swe
-import math
+import os
 
 app = Flask(__name__)
 
-# 🔥 CONFIG EPHEMERIS (IMPORTANTE)
-swe.set_ephe_path('/usr/share/ephe')  # en Render puede variar, pero funciona así normalmente
+# 🔥 FIX PATH
+swe.set_ephe_path(os.getcwd())
 
 
-# ===============================
-# 🌍 CALCULAR SIGNO
-# ===============================
 def obtener_signo(grados):
     signos = [
         "Aries", "Tauro", "Géminis", "Cáncer",
@@ -20,9 +17,6 @@ def obtener_signo(grados):
     return signos[int(grados / 30)]
 
 
-# ===============================
-# 🔮 CALCULAR CARTA BÁSICA
-# ===============================
 def calcular_carta(data):
     year = int(data.get("year"))
     month = int(data.get("month"))
@@ -32,13 +26,10 @@ def calcular_carta(data):
     lat = float(data.get("lat"))
     lon = float(data.get("lon"))
 
-    # 🔥 convertir hora decimal
     hora_decimal = hour + (minute / 60.0)
 
-    # 🔥 fecha juliana
     jd = swe.julday(year, month, day, hora_decimal)
 
-    # 🔥 planetas principales
     planetas = {
         "sol": swe.SUN,
         "luna": swe.MOON,
@@ -56,7 +47,6 @@ def calcular_carta(data):
             "signo": obtener_signo(pos)
         }
 
-    # 🔥 ASCENDENTE
     casas = swe.houses(jd, lat, lon)
     asc = casas[0][0]
 
@@ -68,22 +58,15 @@ def calcular_carta(data):
     return resultado
 
 
-# ===============================
-# 🟢 HOME
-# ===============================
 @app.route("/")
 def home():
     return "UMBRAL OK"
 
 
-# ===============================
-# 🔥 ENDPOINT REAL
-# ===============================
 @app.route("/carta", methods=["POST"])
 def carta():
     try:
         data = request.json
-
         carta = calcular_carta(data)
 
         return jsonify({
@@ -97,8 +80,5 @@ def carta():
         }), 500
 
 
-# ===============================
-# 🚀 RUN
-# ===============================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
