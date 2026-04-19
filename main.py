@@ -4,7 +4,6 @@ import os
 
 app = Flask(__name__)
 
-# 🔥 EPHE PATH (para Render)
 swe.set_ephe_path(os.getcwd())
 
 
@@ -21,7 +20,7 @@ def obtener_signo(grados):
 
 
 # ===============================
-# 🔮 CÁLCULO CARTA (PROFESIONAL)
+# 🔮 CARTA COMPLETA PRO
 # ===============================
 def calcular_carta(data):
 
@@ -37,14 +36,13 @@ def calcular_carta(data):
 
     timezone = float(data.get("timezone", -6))
 
-    # 🔥 CONVERSIÓN CORRECTA A UTC
+    # 🔥 UTC CORRECTO
     hora_local = hour + (minute / 60.0)
     hora_utc = hora_local - timezone
 
-    # 🔥 JULIAN DAY
     jd = swe.julday(year, month, day, hora_utc)
 
-    # 🔥 PLANETAS PRINCIPALES
+    # 🔥 PLANETAS
     planetas = {
         "sol": swe.SUN,
         "luna": swe.MOON,
@@ -64,15 +62,32 @@ def calcular_carta(data):
             "signo": obtener_signo(pos)
         }
 
-    # 🔥 CASAS PLACIDUS (ASCENDENTE REAL)
+    # 🔥 CASAS PLACIDUS
     casas, ascmc = swe.houses_ex(jd, lat, lon, b'P')
 
     asc = ascmc[0]
+    mc = ascmc[1]
 
     resultado["ascendente"] = {
         "grado": round(asc, 2),
         "signo": obtener_signo(asc)
     }
+
+    resultado["medio_cielo"] = {
+        "grado": round(mc, 2),
+        "signo": obtener_signo(mc)
+    }
+
+    # 🔥 CASAS COMPLETAS
+    casas_lista = []
+    for i, casa in enumerate(casas):
+        casas_lista.append({
+            "casa": i + 1,
+            "grado": round(casa, 2),
+            "signo": obtener_signo(casa)
+        })
+
+    resultado["casas"] = casas_lista
 
     return resultado
 
@@ -86,7 +101,7 @@ def home():
 
 
 # ===============================
-# 🔥 ENDPOINT CARTA
+# 🔥 ENDPOINT
 # ===============================
 @app.route("/carta", methods=["POST"])
 def carta():
