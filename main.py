@@ -1,62 +1,111 @@
-/*************************************
- ASTRO.gs (FINAL CON TEXTO INTERPRETABLE)
-*************************************/
-function obtenerContextoAstrologico(email) {
-  try {
+from flask import Flask, request, jsonify
+import swisseph as swe
+import os
 
-    const datos = obtenerDatosCliente(email);
+app = Flask(__name__)
 
-    if (!datos || !datos.year) {
-      return "No disponible";
+# 🔥 EPHE PATH
+swe.set_ephe_path(os.getcwd())
+
+
+# ===============================
+# 🌍 SIGNOS
+# ===============================
+def obtener_signo(grados):
+    signos = [
+        "Aries", "Tauro", "Géminis", "Cáncer",
+        "Leo", "Virgo", "Libra", "Escorpio",
+        "Sagitario", "Capricornio", "Acuario", "Piscis"
+    ]
+    return signos[int(grados / 30)]
+
+
+# ===============================
+# 🔮 CARTA PROFESIONAL
+# ===============================
+def calcular_carta(data):
+
+    year = int(data.get("year"))
+    month = int(data.get("month"))
+    day = int(data.get("day"))
+    hour = int(data.get("hour"))
+    minute = int(data.get("minute"))
+
+    lat = float(data.get("lat"))
+    lon = float(data.get("lon"))
+
+    timezone = float(data.get("timezone", -6))
+
+    # 🔥 CONVERSIÓN CORRECTA A UTC
+    hora_local = hour + (minute / 60.0)
+    hora_utc = hora_local - timezone
+
+    jd = swe.julday(year, month, day, hora_utc)
+
+    # 🔥 PLANETAS
+    planetas = {
+        "sol": swe.SUN,
+        "luna": swe.MOON,
+        "mercurio": swe.MERCURY,
+        "venus": swe.VENUS,
+        "marte": swe.MARS,
+        "jupiter": swe.JUPITER,
+        "saturno": swe.SATURN
     }
 
-    const url = "https://astro-api-umbral-1.onrender.com/carta";
+    resultado = {}
 
-    const payload = {
-      name: datos.nombre || "Usuario",
-      year: parseInt(datos.year),
-      month: parseInt(datos.month),
-      day: parseInt(datos.day),
-      hour: parseInt(datos.hour),
-      minute: parseInt(datos.minute),
-      lat: 19.4326,
-      lon: -99.1332,
-      timezone: -6
-    };
+    for nombre, planeta in planetas.items():
+        pos = swe.calc_ut(jd, planeta)[0][0]
+        resultado[nombre] = {
+            "grado": round(pos, 2),
+            "signo": obtener_signo(pos)
+        }
 
-    const response = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
+    # 🔥 CASAS PLACIDUS (PROFESIONAL)
+    casas, ascmc = swe.houses_ex(jd, lat, lon, b'P')
 
-    const text = response.getContentText();
+    asc = ascmc[0]
 
-    const parsed = JSON.parse(text);
-
-    if (!parsed.carta) {
-      return "No disponible";
+    resultado["ascendente"] = {
+        "grado": round(asc, 2),
+        "signo": obtener_signo(asc)
     }
 
-    const c = parsed.carta;
+    return resultado
 
-    // 🔥 CONVERTIR A TEXTO PARA IA
-    const resumen = `
-Carta natal del usuario:
 
-Sol en ${c.sol.signo}
-Luna en ${c.luna.signo}
-Ascendente en ${c.ascendente.signo}
-Mercurio en ${c.mercurio.signo}
-Venus en ${c.venus.signo}
-Marte en ${c.marte.signo}
-`;
+# ===============================
+# 🟢 HOME
+# ===============================
+@app.route("/")
+def home():
+    return "UMBRAL OK"
 
-    return resumen;
 
-  } catch (error) {
-    Logger.log("ERROR ASTRO: " + error.message);
-    return "No disponible";
-  }
-}
+# ===============================
+# 🔥 ENDPOINT REAL
+# ===============================
+@app.route("/carta", methods=["POST"])
+def carta():
+    try:
+        data = request.json
+
+        carta = calcular_carta(data)
+
+        return jsonify({
+            "mensaje": "Carta calculada",
+            "carta": carta
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# ===============================
+# 🚀 RUN
+# ===============================
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
