@@ -1,84 +1,62 @@
-from flask import Flask, request, jsonify
-import swisseph as swe
-import os
+/*************************************
+ ASTRO.gs (FINAL CON TEXTO INTERPRETABLE)
+*************************************/
+function obtenerContextoAstrologico(email) {
+  try {
 
-app = Flask(__name__)
+    const datos = obtenerDatosCliente(email);
 
-# 🔥 FIX PATH
-swe.set_ephe_path(os.getcwd())
-
-
-def obtener_signo(grados):
-    signos = [
-        "Aries", "Tauro", "Géminis", "Cáncer",
-        "Leo", "Virgo", "Libra", "Escorpio",
-        "Sagitario", "Capricornio", "Acuario", "Piscis"
-    ]
-    return signos[int(grados / 30)]
-
-
-def calcular_carta(data):
-    year = int(data.get("year"))
-    month = int(data.get("month"))
-    day = int(data.get("day"))
-    hour = int(data.get("hour"))
-    minute = int(data.get("minute"))
-    lat = float(data.get("lat"))
-    lon = float(data.get("lon"))
-
-    hora_decimal = hour + (minute / 60.0)
-
-    jd = swe.julday(year, month, day, hora_decimal)
-
-    planetas = {
-        "sol": swe.SUN,
-        "luna": swe.MOON,
-        "mercurio": swe.MERCURY,
-        "venus": swe.VENUS,
-        "marte": swe.MARS
+    if (!datos || !datos.year) {
+      return "No disponible";
     }
 
-    resultado = {}
+    const url = "https://astro-api-umbral-1.onrender.com/carta";
 
-    for nombre, planeta in planetas.items():
-        pos = swe.calc_ut(jd, planeta)[0][0]
-        resultado[nombre] = {
-            "grado": round(pos, 2),
-            "signo": obtener_signo(pos)
-        }
+    const payload = {
+      name: datos.nombre || "Usuario",
+      year: parseInt(datos.year),
+      month: parseInt(datos.month),
+      day: parseInt(datos.day),
+      hour: parseInt(datos.hour),
+      minute: parseInt(datos.minute),
+      lat: 19.4326,
+      lon: -99.1332,
+      timezone: -6
+    };
 
-    casas = swe.houses(jd, lat, lon)
-    asc = casas[0][0]
+    const response = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
 
-    resultado["ascendente"] = {
-        "grado": round(asc, 2),
-        "signo": obtener_signo(asc)
+    const text = response.getContentText();
+
+    const parsed = JSON.parse(text);
+
+    if (!parsed.carta) {
+      return "No disponible";
     }
 
-    return resultado
+    const c = parsed.carta;
 
+    // 🔥 CONVERTIR A TEXTO PARA IA
+    const resumen = `
+Carta natal del usuario:
 
-@app.route("/")
-def home():
-    return "UMBRAL OK"
+Sol en ${c.sol.signo}
+Luna en ${c.luna.signo}
+Ascendente en ${c.ascendente.signo}
+Mercurio en ${c.mercurio.signo}
+Venus en ${c.venus.signo}
+Marte en ${c.marte.signo}
+`;
 
+    return resumen;
 
-@app.route("/carta", methods=["POST"])
-def carta():
-    try:
-        data = request.json
-        carta = calcular_carta(data)
-
-        return jsonify({
-            "mensaje": "Carta calculada",
-            "carta": carta
-        })
-
-    except Exception as e:
-        return jsonify({
-            "error": str(e)
-        }), 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+  } catch (error) {
+    Logger.log("ERROR ASTRO: " + error.message);
+    return "No disponible";
+  }
+}
